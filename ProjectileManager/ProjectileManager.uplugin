@@ -1,0 +1,23 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "ProjectileManager",
+	"Description": "A projectile pooling manager plugin for FPS games.",
+	"Category": "Gameplay Support",
+	"CreatedBy": "Nicholas Mallonee",
+	"CreatedByURL": "NicholasMallonee.com",
+	"DocsURL": "https://github.com/Paradox--/UsefulPlugins/",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ProjectileManager",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
