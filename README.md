@@ -2,11 +2,13 @@
 A list of self made useful project level plugins for the unreal engine. These are all build in 
 4.23.1 and 4.24.1. You will need to compile them for your project Follow the Install for each below.
 
-## Plugins List
-* Projectile Manager
+# Plugins List
+* [Projectile Manager](https://github.com/Paradox--/UsefulUnrealProjectPlugins/tree/master/ProjectileManager)
 
-## Plugin Overviews
-#### Projectile Manager  
+# Plugin Overviews
+## Projectile Manager 
+![alt text](https://github.com/Paradox--/UsefulUnrealProjectPlugins/blob/master/ProjectileManager/Resources/Icon128.png "Projectile Manager Logo") 
+
 *A plugin meant to manage a single player games projectiles. Allocated a desired number
 of projectiles at begin play. Users can access the managed pool via a blueprint library
 or via static function calls.
