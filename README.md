@@ -12,7 +12,7 @@ A list of self made useful project level plugins for the unreal engine. These ar
 *A plugin meant to manage a single player games projectile management. Allocate a desired number
 of projectiles at begin play. Users can access the managed pool via a blueprint library
 or via static function calls. There are both blueprints and c++ examples included. 
-Current Version: 1.0 
+Current Version: 1.0.1 
 License: MIT*
 
 ## Install Instructions
