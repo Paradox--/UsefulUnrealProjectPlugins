@@ -9,7 +9,7 @@ A list of self made useful project level plugins for the unreal engine. These ar
 #### Projectile Manager 
 ![alt text](https://github.com/Paradox--/UsefulUnrealProjectPlugins/blob/master/ProjectileManager/Resources/Icon128.png "Projectile Manager Logo") 
 
-*A plugin meant to manage a single player games projectiles. Allocated a desired number
+*A plugin meant to manage a single player games projectile management. Allocate a desired number
 of projectiles at begin play. Users can access the managed pool via a blueprint library
 or via static function calls. There are both blueprints and c++ examples included. 
 Current Version: 1.0 
