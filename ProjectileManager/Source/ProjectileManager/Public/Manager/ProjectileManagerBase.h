@@ -61,6 +61,13 @@ public:
 		return GetManagedProjectilePtr();	
 	}
 
+	AManagedProjectileBase* MarkEntryInUse(int32& ConfirmedIndex)
+	{
+		bIsCurrentlyInUse = true;
+		if (ManagedProjectilePtr)ManagedProjectilePtr->UpdateLastKnownEntryInPool(ConfirmedIndex);
+		return GetManagedProjectilePtr();
+	}
+
 	/* Unmark an entry as it is no longer in use. */
 	void UnMarkEntryInUse()
 	{
@@ -129,6 +136,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Retrieval Return Settings")
 	bool bStartAtFrontOfPool = true;
 
+	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Retrieval Return Settings")
 	FProjectilePoolRequest ReturnProjectileRequest;
 
@@ -138,6 +147,62 @@ public:
 
 public:
 	FProjectileManagerRetrieveReturnSettings()
+	{}
+};
+
+/* The Struct that defines the global setting  */
+USTRUCT(BlueprintType)
+struct FProjectileManagerGlobalSettings
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Global Settings")
+	bool bOptimizeWithNewRequestsUsingLastReturned = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Global Settings")
+	bool bAllowForProjectilesTickAsync = false;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Global Settings")
+	bool bAllowAsyncPullFromPool = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Global Settings")
+	bool bAllowAsyncReturnToPool = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Global Settings")
+	int32 LastReturnedCacheSize = 10;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Manager Global Settings")
+	float AsyncTaskWaitTime = 0.0083f;	// default of 120fps
+
+	UPROPERTY()
+	TArray<int32> LastReturned;
+
+public:
+	/* return if we can trying optimizing using the last returned index */
+	bool AllowedToOptimizeWithRequestsUsingLastReturned() const { return bOptimizeWithNewRequestsUsingLastReturned; }
+
+	bool AllowForProjectilesToTickAsync() { return bAllowForProjectilesTickAsync; }
+
+	bool AllowAsyncPullFromPool() const { return bAllowAsyncPullFromPool; }
+
+	bool AllowAsyncReturnToPool() const { return bAllowAsyncReturnToPool; }
+
+	/* Returns the Last returned entry */
+	int32 GetLastReturnedEntry() { return LastReturned.Num() > 0 ? LastReturned.Pop(true) : -1; }
+
+	float GetAsyncWaitTime() const { return AsyncTaskWaitTime; }
+
+	/* Updates the last returned entry */
+	void AddLastReturned(int32& idx)
+	{
+		if (LastReturned.Num() >= LastReturnedCacheSize) return;
+		else
+			LastReturned.Push(idx);
+	}
+
+public:
+	FProjectileManagerGlobalSettings()
 	{}
 };
 
@@ -188,13 +253,20 @@ private:
 	/* Findes potential index to remove, false if none exist */
 	bool FindPotentialEntriesToRemove(TArray<int32>& OutPotentialIndexs, int32& InNumWantingToRemove);
 
+	/* Attempts to remove entries from the managed list */
 	bool AttemptToRemoveEntries(TArray<int32>& InPotentialIndexs, int32& InNumToRemove, int32& CurrentPoolTargetSize);
 
+	/* Doe have a valid last known entry ?*/
+	bool DoWeHaveValidLastKnownEntry(int32& OutEntry);
+
 	/* Finds the first object to return, -1 if none */
-	int32 FindFirstAvalibleIndex(bool bFromFront = false) const;
+	int32 FindFirstAvalibleIndex(bool bFromFront = false);
 
 	/* Find the object to return, -1 if not found */
-	int32 FindIndexFromPointer(bool bFromFront, AManagedProjectileBase*& InProjectileToReturn) const;
+	int32 FindIndexFromPointer(bool bFromFront, AManagedProjectileBase*& InProjectileToReturn);
+
+	/* Updates Last Returned index */
+	void UpdateLastReturnedEntry(int32 InEntryKey);
 
 	// -- Private Information -- Settings Methods -- //
 private:
@@ -202,7 +274,12 @@ private:
 	bool InitProjectilesWithCollisionEnabled() const { return InitSettings.GetStartWithCollision(); }
 
 	/* Should we do any searchs from the front or the back of the managed pool? */
-	bool ShouldRetreieveFromTheFrontOfThePool() const { return RetrieveReturnSettings.StartSearchAtBeginningOfPool(); }
+	bool ShouldRetreieveFromTheFrontOfThePool() const { return RetrieveReturnSettings.StartSearchAtBeginningOfPool(); }	
+
+	/* Should we do any searchs from the front or the back of the managed pool? */
+	bool OptimizeRequestsWithCachingLastReturned() const { return GlobalSettings.AllowedToOptimizeWithRequestsUsingLastReturned(); }
+
+	bool OptimizeProjectilesMustTickAsync() { return GlobalSettings.AllowForProjectilesToTickAsync(); }
 
 	/* What is the init pool size? */
 	int32 GetInitProjectilePoolSize() const { return InitSettings.GetStartingPoolSize(); }
@@ -214,7 +291,8 @@ private:
 	FProjectilePoolRequest GetReturnRequestSettings() const { return RetrieveReturnSettings.ReturnProjectileRequest; }
 
 	/* What class do we work with? */
-	UClass* GetProjectileClassToUse() const { return InitSettings.GetProjectileClassToSpawn(); }	
+	UClass* GetProjectileClassToUse() const { return InitSettings.GetProjectileClassToSpawn(); }
+
 
 	// -- Public Information -- Projectile Manager Exposed Properties -- //
 public:
@@ -229,6 +307,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Projectile Manager | Settings | Retrieve / Return  ")
 	FProjectileManagerRetrieveReturnSettings RetrieveReturnSettings;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Projectile Manager | Settings | Global ")
+	FProjectileManagerGlobalSettings GlobalSettings;
 
 	UPROPERTY()
 	TArray<FManagedProjectileEntry> ManagedPool;

@@ -17,6 +17,7 @@
 */
 
 #include "ProjectileManager/Public/Projectile/ManagedProjectileBase.h"
+#include "Kismet/KismetMathLibrary.h"
 
 //-----------------------------------------------------------------------------------
 // Managed Projectile Base Class Constructor										-
@@ -25,6 +26,8 @@ AManagedProjectileBase::AManagedProjectileBase()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
+	PrimaryActorTick.bRunOnAnyThread = false;
 
 	// -- sphere comp
 	SphereCollision = CreateDefaultSubobject<USphereComponent>(TEXT("Collision Sphere"));
@@ -68,26 +71,23 @@ bool AManagedProjectileBase::Request_UpdateFromPool(FProjectilePoolRequest Setti
 	if (!ProjectileMovement || !SphereCollision) return false;
 	else
 	{
-		// hide the actor on move. 
-		SetActorHiddenInGame(Settings.GetHideOnMove());
-
-		// make sure the collision is diabled to remove any weirdness
-		SphereCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-		// make sure this is not moving
-		ProjectileMovement->StopMovementImmediately();
+		// set the velocity. 
+		ProjectileMovement->Velocity = (Settings.GetProjectileSpeed() <= 0.f ? FVector::ZeroVector : Settings.GetDirectionVector() * Settings.GetProjectileSpeed());
 
 		// set the actor location and rotation.
 		SetActorLocationAndRotation(Settings.GetStartLocation(), Settings.GetDirectionVector().ToOrientationQuat(), !Settings.GetTeleportOnMove(), nullptr, ETeleportType::TeleportPhysics);
 
-		// set the velocity. 
-		ProjectileMovement->Velocity = Settings.GetDirectionVector() * Settings.GetProjectileSpeed();
-
-		// set the collision back to the new state. 
+		// set the collision to which ever state should be required. 
 		SphereCollision->SetCollisionEnabled(Settings.GetCollisionEnabledSettings());	
 
-		// Unhide the actor after the move
-		SetActorHiddenInGame(Settings.GetHideAfterMove());
+		// enable or disable the tick after the move?
+		SetActorTickEnabled(Settings.GetEnableTick());
+
+		// disable or enable the tick on the movement component after the move?
+		ProjectileMovement->SetComponentTickEnabled(Settings.GetEnableTick());
+
+		// do we show or hide the projectile after the move? 
+		SetActorHiddenInGame(Settings.GetHideAfterPoolRequest());
 
 		return true;
 	}
@@ -99,4 +99,19 @@ bool AManagedProjectileBase::Request_UpdateFromPool(FProjectilePoolRequest Setti
 bool AManagedProjectileBase::Deinit_ProjectileBase()
 {
 	return Destroy();
+}
+
+/* Used to set the projectile movement component to tick async or inline with the game/ physics thread. 
+	@param: bNewState: do we tick async? 
+	@returns: if it completed successfully
+*/
+bool AManagedProjectileBase::Requst_TickMoveToAsync(bool bNewState)
+{
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->SetComponentTickEnabledAsync(bNewState);
+		return true;
+	}
+	else
+		return false;
 }

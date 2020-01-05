@@ -38,10 +38,10 @@ public:
 	bool bTeleportOnMove = true;												// teleport or sweep when pulling or putting it back? 
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Pool Request Settings")
-	bool bHideActorOnMove = true;												// should the projectile actor be invisible till after we are done moving? 
+	bool bHideAfterPoolRequest = false;											// should the actor be visible after moving.
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Pool Request Settings")
-	bool bHideActorAfterMove = false;
+	bool bEnableTick = true;													// should the tick function on the projectile be enabled after the operation?
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile Pool Request Settings")
 	TEnumAsByte<ECollisionEnabled::Type> CollisionSettings = ECollisionEnabled::NoCollision;	// what do we want the collision to be set to on pull from pool or back into pool
@@ -60,11 +60,10 @@ public:
 	/* Teleport On move */
 	bool GetTeleportOnMove() const { return bTeleportOnMove; }
 
-	/* Do we want to hide the actor on move? */
-	bool GetHideOnMove() const { return bHideActorOnMove; }
-
 	/* Do we want to hide the actor after the move? */
-	bool GetHideAfterMove() const { return bHideActorAfterMove; }
+	bool GetHideAfterPoolRequest() const { return bHideAfterPoolRequest; }
+
+	bool GetEnableTick() const { return bEnableTick; }
 	
 	/* Get the collision enabled flag? */
 	ECollisionEnabled::Type GetCollisionEnabledSettings() const { return CollisionSettings; }
@@ -82,17 +81,52 @@ public:
 	FProjectilePoolRequest()
 	{}
 
-	explicit struct FProjectilePoolRequest(bool bTeleport, bool bHideOn, bool bHideAfter, ECollisionEnabled::Type CollSettings, float Speed, FVector Loc, FVector Unit)
+	explicit struct FProjectilePoolRequest(bool bTeleport, bool bOnHideOnRequest, ECollisionEnabled::Type CollSettings, float Speed, FVector Loc, FVector Unit)
 	{
 		bTeleportOnMove = bTeleport;
-		bHideActorOnMove = bHideOn;
-		bHideActorAfterMove = bHideAfter;
+		bHideAfterPoolRequest = bOnHideOnRequest;
 		CollisionSettings = CollSettings;
 		ProjectileSpeed = Speed;
 		LocationToMoveTo = Loc;
 		DirectionUnitVector = Unit;
 	}
 };
+
+/* Struct that helps define inforation for inside out information gathering. */
+USTRUCT()
+struct FProjectilePoolInformation
+{
+	GENERATED_BODY()
+
+	// -- Public Information -- Struct Properties -- 
+public:
+	UPROPERTY()
+	int32 LastKnownEntryInPool = 0;
+
+	UPROPERTY()
+	uint32 HashedPointerToManager = 0x0000;
+
+	// -- Public Information -- Struct Methods -- 
+public:
+	int32 GetLastKnownEntry() const { return LastKnownEntryInPool; }
+
+	uint32 GetHashedPointer() const { return HashedPointerToManager; }
+
+	void UpdateLastKnownEntry(int32& Entry)
+	{
+		LastKnownEntryInPool = Entry;
+	}
+
+	void UpdateHashedPointer(uint32& ptr)
+	{
+		HashedPointerToManager = ptr;
+	}
+
+public:
+	FProjectilePoolInformation()
+	{}
+};
+
 
 //-----------------------------------------------------------------------------------
 // Managed Projectile Base Class Declariation										-
@@ -118,8 +152,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Managed Projectile | Lifecycle ")
 	bool Deinit_ProjectileBase();
 
+	UFUNCTION(BlueprintCallable, Category = "Managed Projectile | Optimization ")
+	bool Requst_TickMoveToAsync(bool bNewState);
+
+	// -- Public Information -- Projectile Optimizations -- //
+public:
+	int32 GetLastKnownEntryInPool() const { return PoolInformation.GetLastKnownEntry(); }
+
+	/* Updates the last known entry */
+	void UpdateLastKnownEntryInPool(int32& Index)
+	{
+		PoolInformation.UpdateLastKnownEntry(Index);
+	}
+
 	// -- Public Information -- Class Properties -- //
 public:
+	UPROPERTY()
+	FProjectilePoolInformation PoolInformation; 
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Properties | Projectile Components")
 	USphereComponent* SphereCollision = nullptr;
 

@@ -81,7 +81,7 @@ void AProjectileFireExampleActor::OnProjectileExampleFire()
 		
 
 		// build a pool request. 
-		FProjectilePoolRequest PoolRequest = FProjectilePoolRequest(true, true, false, 
+		FProjectilePoolRequest PoolRequest = FProjectilePoolRequest(true, false, 
 																	ECollisionEnabled::QueryAndPhysics, 
 																	FMath::FRandRange(MinSpeed, MaxSpeed), 
 																	Arrow ? Arrow->GetComponentLocation() : FVector::ZeroVector, 

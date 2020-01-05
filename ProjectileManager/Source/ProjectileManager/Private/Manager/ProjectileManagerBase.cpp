@@ -87,8 +87,8 @@ bool AProjectileManagerBase::Request_GetProjectileFromManager(AManagedProjectile
 		// if the entry is valid. 
 		if (found >= 0)
 		{
-			// mark it and save it. 
-			OutProjectileToUse = ManagedPool[found].MarkEntryInUse();
+			// mark itas being used, make sure the entry is up to date to speed up the return.
+			OutProjectileToUse = ManagedPool[found].MarkEntryInUse(found);
 
 			// apply the pull settings and return. 
 			return OutProjectileToUse ? OutProjectileToUse->Request_UpdateFromPool(RetreieveSettings) : false;
@@ -133,6 +133,13 @@ bool AProjectileManagerBase::Request_ReturnProjectileToManager(AManagedProjectil
 			}
 			else
 			{
+				// if we have optimized search 
+				if (OptimizeRequestsWithCachingLastReturned())
+				{
+					// mark this one as last returned. 
+					UpdateLastReturnedEntry(found);
+				}
+
 				// mark as it nots in use
 				ManagedPool[found].UnMarkEntryInUse();
 
@@ -195,6 +202,9 @@ bool AProjectileManagerBase::Create_ProjectilePool(int32 DesiredSize)
 
 					// add this object to the record as needed, save this object as the deleter. 
 					ManagedPool.Add(FManagedProjectileEntry(projectile));
+
+					// set the projectile up if we want to have it tick async to the game thread. 
+					projectile->Requst_TickMoveToAsync(OptimizeProjectilesMustTickAsync());
 				}
 			}
 
@@ -345,30 +355,46 @@ bool AProjectileManagerBase::AttemptToRemoveEntries(TArray<int32>& InPotentialIn
 	return !bNeedToRemoveOnReturn ? GetCurrentPoolSize() == CurrentPoolTargetSize : true;
 }
 
+bool AProjectileManagerBase::DoWeHaveValidLastKnownEntry(int32& OutEntry)
+{
+	OutEntry = GlobalSettings.GetLastReturnedEntry();
+	return OutEntry >= 0 && OutEntry < ManagedPool.Num() && !ManagedPool[OutEntry].IsInUse();
+}
+
 /*	Finds the first availble projectile index. 
 	@param: bFromFront: do we start the search from the front or the back?
 	@return: the index of the entry, -1 if not found.
 */
-int32 AProjectileManagerBase::FindFirstAvalibleIndex(bool bFromFront) const
+int32 AProjectileManagerBase::FindFirstAvalibleIndex(bool bFromFront)
 {
-	if (bFromFront)
+	// check if we can use an optimized search. 
+	int32 PotentialEntry = -1;
+	if (OptimizeRequestsWithCachingLastReturned() && DoWeHaveValidLastKnownEntry(PotentialEntry))
 	{
-		for (int32 i = 0; i < ManagedPool.Num(); i++)
-		{
-			if (!ManagedPool[i].IsInUse()) return i;
-		}
-
-		return -1;
+		// return the one we found.
+		return PotentialEntry;
 	}
-	else
+	else // else use the default search 
 	{
-		for (int32 i = ManagedPool.Num(); i >= 0; --i)
+		if (bFromFront)
 		{
-			if (!ManagedPool[i].IsInUse()) return i;
-		}
+			for (PotentialEntry = 0; PotentialEntry < ManagedPool.Num(); PotentialEntry++)
+			{
+				if (!ManagedPool[PotentialEntry].IsInUse()) return PotentialEntry;
+			}
 
-		return -1;
-	}
+			return -1;
+		}
+		else
+		{
+			for (PotentialEntry = ManagedPool.Num(); PotentialEntry >= 0; --PotentialEntry)
+			{
+				if (!ManagedPool[PotentialEntry].IsInUse()) return PotentialEntry;
+			}
+
+			return -1;
+		}
+	}	
 }
 
 /*	Finds the entry index from a pointer to a projectile. 
@@ -376,28 +402,41 @@ int32 AProjectileManagerBase::FindFirstAvalibleIndex(bool bFromFront) const
 	@param: InProjectileToReturn: The projectile to return. 
 	@return: the index of the entry, -1 if not found.
 */
-int32 AProjectileManagerBase::FindIndexFromPointer(bool bFromFront, AManagedProjectileBase*& InProjectileToReturn) const
+int32 AProjectileManagerBase::FindIndexFromPointer(bool bFromFront, AManagedProjectileBase*& InProjectileToReturn)
 {
 	if (!InProjectileToReturn) return -1;
 	else
 	{
-		if (bFromFront)
-		{
-			for (int32 i = 0; i < ManagedPool.Num(); i++)
-			{
-				if (ManagedPool[i].IsEntry(InProjectileToReturn)) return i;
-			}
+		// see if its last know entry is the currenty entry to reduce search time.
+		int32 idx = InProjectileToReturn->GetLastKnownEntryInPool();
 
-			return -1;
-		}
+		// if its a valid index. 
+		if (idx >= 0 && idx < ManagedPool.Num() && ManagedPool[idx].IsEntry(InProjectileToReturn)) return idx;
 		else
 		{
-			for (int32 i = ManagedPool.Num(); i >= 0; --i)
+			if (bFromFront)
 			{
-				if (ManagedPool[i].IsEntry(InProjectileToReturn)) return i;
-			}
+				for (int32 i = 0; i < ManagedPool.Num(); i++)
+				{
+					if (ManagedPool[i].IsEntry(InProjectileToReturn)) return i;
+				}
 
-			return -1;
-		}
+				return -1;
+			}
+			else
+			{
+				for (int32 i = ManagedPool.Num(); i >= 0; --i)
+				{
+					if (ManagedPool[i].IsEntry(InProjectileToReturn)) return i;
+				}
+
+				return -1;
+			}
+		}			
 	}
+}
+
+void AProjectileManagerBase::UpdateLastReturnedEntry(int32 InEntryKey)
+{
+	GlobalSettings.AddLastReturned(InEntryKey);
 }
